@@ -2,18 +2,16 @@
 // https://docs.swift.org/swift-book
 
 import Foundation
-import KeychainAccess
+import KeychainSwift
 
 public class SHDataManager {
     
     public static let shared = SHDataManager()
     private init(){}
     
-    private var appBundle: String = ""
+    private let keychain = KeychainSwift()
     
-    public func initialise(_ bundleID: String) {
-        appBundle = bundleID
-    }
+    public var lastError: OSStatus { keychain.lastResultCode }
     
     // MARK: UserDefaults
     public func save(_ file: String, value: Any, isSecure: Bool = false) {
@@ -125,40 +123,25 @@ public class SHDataManager {
     
     
     // MARK: Secure Files
-    private func secureSave(_ file: String, value: String) {
-        let keychain = Keychain(service: appBundle)
-        try? keychain.set(value, key: file)
-    }
-    
-    private func secureSave(_ file: String, value: Data) {
-        let keychain = Keychain(service: appBundle)
-        try? keychain.set(value, key: file)
-    }
+    private func secureSave(_ file: String, value: String) { keychain.set(value, forKey: file) }
+    private func secureSave(_ file: String, value: Data) { keychain.set(value, forKey: file)}
     
     
-    private func secureExist(_ file: String) -> Bool {
-        let keychain = Keychain(service: appBundle)
-        let val = keychain[data: file]
-        return val != nil
-    }
+    private func secureExist(_ file: String) -> Bool { keychain.getData(file) != nil }
     
     
-    private func secureRetrive(_ file: String) -> String? {
-        let keychain = Keychain(service: appBundle)
-        return keychain[string: file]
-    }
+    private func secureRetrive(_ file: String) -> String? { keychain.get(file) }
     
     private func secureRetrive<T: Codable>(_ file: String) -> T? {
-        let keychain = Keychain(service: appBundle)
-        guard let data = keychain[data: file] else { return nil }
+        guard let data = keychain.getData(file) else { return nil }
         return try? JSONDecoder().decode(T.self, from: data)
     }
     
     
-    private func secureDelete(_ file: String) {
-        let keychain = Keychain(service: appBundle)
-        try? keychain.remove(file)
-    }
+    private func secureDelete(_ file: String) { keychain.delete(file) }
+    
+    
+    public func clearSecureData() { keychain.clear() }
     
     
 }

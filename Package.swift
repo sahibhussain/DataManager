@@ -5,7 +5,7 @@ import PackageDescription
 
 let package = Package(
     name: "SHDataManager",
-    platforms: [.iOS(.v15)],
+    platforms: [.iOS(.v15), .macOS(.v11)],
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.
         .library(
@@ -13,14 +13,14 @@ let package = Package(
             targets: ["SHDataManager"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/kishikawakatsumi/KeychainAccess.git", .upToNextMinor(from: "4.2.2"))
+        .package(name: "KeychainSwift", url: "https://github.com/evgenyneu/keychain-swift.git", from: "21.0.0")
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
         .target(
             name: "SHDataManager",
-            dependencies: ["KeychainAccess"]),
+            dependencies: ["KeychainSwift"]),
         .testTarget(
             name: "SHDataManagerTests",
             dependencies: ["SHDataManager"]),
