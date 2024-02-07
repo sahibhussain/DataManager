@@ -6,7 +6,7 @@ import KeychainAccess
 
 public class SHDataManager {
     
-    static let shared = SHDataManager()
+    public static let shared = SHDataManager()
     private init(){}
     
     private var appBundle: String = ""
