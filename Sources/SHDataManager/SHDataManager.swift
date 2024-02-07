@@ -117,6 +117,12 @@ public class SHDataManager {
     
     public func delete(_ url: URL) { try? FileManager.default.removeItem(at: url) }
     
+    public func deleteDocument(_ fileName: String) {
+        let docDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+        guard let fileURL = docDirectory?.appendingPathComponent(fileName) else { return }
+        try? FileManager.default.removeItem(at: fileURL)
+    }
+    
     
     // MARK: Secure Files
     private func secureSave(_ file: String, value: String) {
