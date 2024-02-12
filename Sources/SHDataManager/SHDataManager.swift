@@ -14,42 +14,11 @@ public class SHDataManager {
     public var lastError: OSStatus { keychain.lastResultCode }
     
     // MARK: UserDefaults
-    public func save(_ file: String, value: Any, isSecure: Bool = false) {
-        
-        if let str = value as? String, isSecure { secureSave(file, value: str); return }
-        
-        if let arrayValue = value as? [[String: Any?]] {
-            var finalValue: [[String: Any]] = []
-            for item in arrayValue {
-                var temp: [String: Any] = [:]
-                for (itemKey, itemValue) in item {
-                    if let stringValue = itemValue as? String {
-                        temp[itemKey] = stringValue
-                    }
-                    if let numValue = itemValue as? NSNumber {
-                        temp[itemKey] = numValue
-                    }
-                }
-                finalValue.append(temp)
-            }
-            UserDefaults.standard.set(finalValue, forKey: file)
-            return
-        }
-        
-        if let dictValue = value as? [String: Any?] {
-            var finalValue: [String: Any] = [:]
-            for (key, value) in dictValue {
-                if dictValue[key] != nil {
-                    finalValue[key] = value
-                }
-            }
-            UserDefaults.standard.set(finalValue, forKey: file)
-            return
-        }
-        
-        UserDefaults.standard.set(value, forKey: file)
-        
-    }
+    public func save(_ file: String, value: String, isSecure: Bool = false) { isSecure ? secureSave(file, value: value) : UserDefaults.standard.set(value, forKey: file) }
+    public func save(_ file: String, value: Bool, isSecure: Bool = false) { isSecure ? secureSave(file, value: value) : UserDefaults.standard.set(value, forKey: file) }
+    public func save(_ file: String, value: Int) { UserDefaults.standard.set(value, forKey: file) }
+    public func save(_ file: String, value: Double) { UserDefaults.standard.set(value, forKey: file) }
+    public func save(_ file: String, value: Date) { UserDefaults.standard.set(value, forKey: file) }
     
     public func save<T: Codable>(_ file: String, value: T, isSecure: Bool = false) {
         let encoder = JSONEncoder()
@@ -67,7 +36,11 @@ public class SHDataManager {
     }
     
     
-    public func retrieve(_ file: String, isSecure: Bool = false) -> Any? { isSecure ? secureRetrive(file) : UserDefaults.standard.value(forKey: file) }
+    public func retrieve(_ file: String, isSecure: Bool = false) -> String? { isSecure ? secureRetrive(file) : (UserDefaults.standard.value(forKey: file) as? String) }
+    public func retrieve(_ file: String, isSecure: Bool = false) -> Bool? { isSecure ? secureRetrive(file) : (UserDefaults.standard.value(forKey: file) as? Bool) }
+    public func retrieve(_ file: String) -> Int? { (UserDefaults.standard.value(forKey: file) as? Int) }
+    public func retrieve(_ file: String) -> Double? { (UserDefaults.standard.value(forKey: file) as? Double) }
+    public func retrieve(_ file: String) -> Date? { (UserDefaults.standard.value(forKey: file) as? Date) }
     
     public func retrieve<T: Codable>(_ file: String, isSecure: Bool = false) -> T? {
         guard let data = UserDefaults.standard.value(forKey: file) as? Data else {return nil}
@@ -124,6 +97,7 @@ public class SHDataManager {
     
     // MARK: Secure Files
     private func secureSave(_ file: String, value: String) { keychain.set(value, forKey: file) }
+    private func secureSave(_ file: String, value: Bool) { keychain.set(value, forKey: file) }
     private func secureSave(_ file: String, value: Data) { keychain.set(value, forKey: file)}
     
     
@@ -131,6 +105,7 @@ public class SHDataManager {
     
     
     private func secureRetrive(_ file: String) -> String? { keychain.get(file) }
+    private func secureRetrive(_ file: String) -> Bool? { keychain.getBool(file) }
     
     private func secureRetrive<T: Codable>(_ file: String) -> T? {
         guard let data = keychain.getData(file) else { return nil }
