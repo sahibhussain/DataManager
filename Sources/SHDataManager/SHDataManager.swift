@@ -36,10 +36,10 @@ public class SHDataManager {
     }
     
     
-    public func retrieve(_ file: String, isSecure: Bool = false) -> String? { isSecure ? secureRetrive(file) : (UserDefaults.standard.value(forKey: file) as? String) }
-    public func retrieve(_ file: String, isSecure: Bool = false) -> Bool? { isSecure ? secureRetrive(file) : (UserDefaults.standard.value(forKey: file) as? Bool) }
-    public func retrieve(_ file: String) -> Int? { (UserDefaults.standard.value(forKey: file) as? Int) }
-    public func retrieve(_ file: String) -> Double? { (UserDefaults.standard.value(forKey: file) as? Double) }
+    public func retrieve(_ file: String, isSecure: Bool = false) -> String? { isSecure ? secureRetrive(file) : UserDefaults.standard.string(forKey: file) }
+    public func retrieve(_ file: String, isSecure: Bool = false) -> Bool? { isSecure ? secureRetrive(file) : UserDefaults.standard.bool(forKey: file) }
+    public func retrieve(_ file: String) -> Int? { UserDefaults.standard.integer(forKey: file) }
+    public func retrieve(_ file: String) -> Double? { UserDefaults.standard.double(forKey: file) }
     public func retrieve(_ file: String) -> Date? { (UserDefaults.standard.value(forKey: file) as? Date) }
     
     public func retrieve<T: Codable>(_ file: String, isSecure: Bool = false) -> T? {
@@ -118,9 +118,5 @@ public class SHDataManager {
     
     
     private func secureDelete(_ file: String) { keychain.delete(file) }
-    
-    
-    public func clearSecureData() { keychain.clear() }
-    
     
 }
