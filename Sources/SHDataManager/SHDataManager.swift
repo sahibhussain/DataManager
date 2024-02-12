@@ -43,8 +43,12 @@ public class SHDataManager {
     public func retrieve(_ file: String) -> Date? { (UserDefaults.standard.value(forKey: file) as? Date) }
     
     public func retrieve<T: Codable>(_ file: String, isSecure: Bool = false) -> T? {
+        
+        if isSecure { return secureRetrive<T>(file) }
+        
         guard let data = UserDefaults.standard.value(forKey: file) as? Data else {return nil}
-        return isSecure ? secureRetrive<T>(file) : try? JSONDecoder().decode(T.self, from: data)
+        return try? JSONDecoder().decode(T.self, from: data)
+        
     }
     
     
