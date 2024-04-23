@@ -7,7 +7,7 @@ import KeychainSwift
 public class SHDataManager {
     
     public static let shared = SHDataManager()
-    private init(){}
+    private init(){ keychain.synchronizable = true }
     
     private let keychain = KeychainSwift()
     
