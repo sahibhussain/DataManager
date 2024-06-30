@@ -27,7 +27,7 @@ public class SHDataManager {
         
     }
     
-    public func retrieve<T: Codable>(_ file: String, isSecure: Bool = false, isFile: Bool) -> T? {
+    public func retrieve<T: Codable>(_ file: String, isSecure: Bool = false, isFile: Bool = false) -> T? {
         
         if isSecure {
             let secureValue: T? = secureRetrive(file)
