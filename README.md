@@ -1,5 +1,5 @@
-# SHDataManager
-SHDataManager is a pure swift library to manage app life-cycle data
+# DataManager
+DataManager is a pure swift library to manage app life-cycle data
 
 
 ## Overview
@@ -16,23 +16,23 @@ The  [Swift Package Manager](https://swift.org/package-manager/)  is a tool for 
 if using in Application
 
 -   File > Swift Packages > Add Package Dependency
--   Add  `https://github.com/sahibhussain/SHDataManager.git`
+-   Add  `https://github.com/sahibhussain/data-manager.git`
 -   Select "Up to Next Major" with "1.1.0"
 
 if Using in Package
 
-Once you have your Swift package set up, adding SHDataManager as a dependency is as easy as adding it to the  `dependencies`  value of your  `Package.swift`  or the Package list in Xcode.
+Once you have your Swift package set up, adding DataManager as a dependency is as easy as adding it to the  `dependencies`  value of your  `Package.swift`  or the Package list in Xcode.
 
 ```
 dependencies: [
-    .package(url: "https://github.com/sahibhussain/SHDataManager.git", .upToNextMajor(from: "1.1.0"))
+    .package(url: "https://github.com/sahibhussain/data-manager.git", .upToNextMajor(from: "1.1.0"))
 ]
 ```
 
-Normally you'll want to depend on the  `SHDataManager`  target:
+Normally you'll want to depend on the  `DataManager`  target:
 
 ```
-.product(name: "SHDataManager", package: "SHDataManager")
+.product(name: "DataManager", package: "DataManager")
 ```
 
 
@@ -43,7 +43,7 @@ Normally you'll want to depend on the  `SHDataManager`  target:
 - isSecure: weather data should be stored in keychain (default: false)
 - isFile: weather data should be store in FileManager (default: false)
 ```
-SHDataManager.shared.save("key", value: "any codable value", isSecure: true, isFile: false)
+DataManager.shared.save("key", value: "any codable value", isSecure: true, isFile: false)
 ```
 
 ### check if exists
@@ -51,7 +51,7 @@ SHDataManager.shared.save("key", value: "any codable value", isSecure: true, isF
 - isSecure: weather data is stored in keychain (default: false)
 - isFile: weather data is store in FileManager (default: false)
 ```
-SHDataManager.shared.exist("key, isSecure: true, isFile: false)
+DataManager.shared.exist("key, isSecure: true, isFile: false)
 ```
 
 ### retrieve value
@@ -60,7 +60,7 @@ SHDataManager.shared.exist("key, isSecure: true, isFile: false)
 - isFile: weather data is store in FileManager (default: false)
 
 ```
-SHDataManager.shared.retrieve("key", isSecure: true, isFile: false) 
+DataManager.shared.retrieve("key", isSecure: true, isFile: false) 
 ```
 
 ### delete value
@@ -68,14 +68,14 @@ SHDataManager.shared.retrieve("key", isSecure: true, isFile: false)
 - isSecure: weather data is stored in keychain (default: false)
 - isFile: weather data is store in FileManager (default: false)
 ```
-SHDataManager.shared.delete("key", isSecure: true, isFile: false) 
+DataManager.shared.delete("key", isSecure: true, isFile: false) 
 ```
 
 ## Example
 
 ### Create a helper enum to make your life easier but is completely optional
 ```
-import SHDataManager
+import DataManager
 
 enum SavedContent: String { 
     case keychain, userDefault, fileManager
@@ -94,34 +94,13 @@ enum SavedContent: String {
 		}  
 	} 
 
-	var exists: Bool {
-		// rawValue: is the key here
-		// isSecure: represents if the value is stored in KeyChain (default: false)
-		// isFile: represents if the value is stored in FileManager (default: false)
-		SHDataManager.shared.exist(rawValue, isSecure: isSecure, isFile: isSavedInDoc) 
-	} 
+	var exists: Bool { DataManager.shared.exist(rawValue, isSecure: isSecure, isFile: isSavedInDoc) } 
 	
-	func save<T: Codable>(_ value: T) { 
-		// rawValue: is the key here
-		// value: is the value here
-		// isSecure: represents if the value should be stored in KeyChain (default: false)
-		// isFile: represents if the value should be stored in FileManager (default: false)
-		SHDataManager.shared.save(rawValue, value: value, isSecure: isSecure, isFile: isSavedInDoc) 
-	}  
+	func save<T: Codable>(_ value: T) { DataManager.shared.save(rawValue, value: value, isSecure: isSecure, isFile: isSavedInDoc) }  
 	
-	func retrieve<T: Codable>() -> T? { 
-		// rawValue: is the key here
-		// isSecure: represents if the value is stored in KeyChain (default: false)
-		// isFile: represents if the value is stored in FileManager (default: false)
-		SHDataManager.shared.retrieve(rawValue, isSecure: isSecure, isFile: isSavedInDoc) 
-	}
+	func retrieve<T: Codable>() -> T? { DataManager.shared.retrieve(rawValue, isSecure: isSecure, isFile: isSavedInDoc) }
 		  
-	func delete() { 
-		// rawValue: is the key here
-		// isSecure: represents if the value is stored in KeyChain (default: false)
-		// isFile: represents if the value is stored in FileManager (default: false)
-		SHDataManager.shared.delete(rawValue, isSecure: isSecure, isFile: isSavedInDoc) 
-	}
+	func delete() {  DataManager.shared.delete(rawValue, isSecure: isSecure, isFile: isSavedInDoc) }
 }
 
 
@@ -136,4 +115,4 @@ SavedContent.keychain.delete()
 
 ### Contact
 
-Follow and contact me on [X (Twitter)](https://x.com/Sahib_hussain0). If you find an issue, [open a ticket](https://github.com/sahibhussain/SHDataManager/issues/new). Pull requests are warmly welcome as well.
+Follow and contact me on [X (Twitter)](https://x.com/Sahib_hussain0). If you find an issue, [open a ticket](https://github.com/sahibhussain/data-manager/issues/new). Pull requests are warmly welcome as well.
