@@ -4,9 +4,9 @@
 import Foundation
 import KeychainSwift
 
-public class SHDataManager {
+public class DataManager {
     
-    public static let shared = SHDataManager()
+    public static let shared = DataManager()
     private init() { keychain.synchronizable = true }
     
     private let keychain = KeychainSwift()
@@ -67,7 +67,7 @@ public class SHDataManager {
     public func saveToDocuments(_ fileName: String, value: Data) -> URL? {
         let docDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
         guard let fileURL = docDirectory?.appendingPathComponent(fileName) else {return nil}
-        do { try value.write(to: fileURL); return fileURL } catch let error { return nil }
+        do { try value.write(to: fileURL); return fileURL } catch { return nil }
     }
     
     

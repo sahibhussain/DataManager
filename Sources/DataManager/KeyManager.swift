@@ -8,7 +8,7 @@
 
 import Foundation
 
-public class SHKeyManager {
+public class KeyManager {
     
     enum KeyError: Error {
         
@@ -32,7 +32,7 @@ public class SHKeyManager {
         
     }
     
-    static let shared = SHKeyManager()
+    static let shared = KeyManager()
     private init() {}
     
     public func save(_ password: String, accountID: String, domain: String) -> Error? {

@@ -4,25 +4,25 @@
 import PackageDescription
 
 let package = Package(
-    name: "SHDataManager",
+    name: "DataManager",
     platforms: [.iOS(.v15), .macOS(.v11)],
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.
         .library(
-            name: "SHDataManager",
-            targets: ["SHDataManager"]),
+            name: "DataManager",
+            targets: ["DataManager"]),
     ],
     dependencies: [
-        .package(name: "KeychainSwift", url: "https://github.com/evgenyneu/keychain-swift.git", from: "21.0.0")
+        .package(name: "KeychainSwift", url: "https://github.com/evgenyneu/keychain-swift.git", from: "24.0.0")
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
         .target(
-            name: "SHDataManager",
+            name: "DataManager",
             dependencies: ["KeychainSwift"]),
         .testTarget(
-            name: "SHDataManagerTests",
-            dependencies: ["SHDataManager"]),
+            name: "DataManagerTests",
+            dependencies: ["DataManager"]),
     ]
 )

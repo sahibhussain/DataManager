@@ -1,7 +1,7 @@
 import XCTest
-@testable import SHDataManager
+@testable import DataManager
 
-final class SHDataManagerTests: XCTestCase {
+final class DataManagerTests: XCTestCase {
     func testExample() throws {
         // XCTest Documentation
         // https://developer.apple.com/documentation/xctest
