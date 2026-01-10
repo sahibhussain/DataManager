@@ -2,57 +2,88 @@
 // https://docs.swift.org/swift-book
 
 import Foundation
-import KeychainSwift
 
 public class DataManager {
     
+    public enum SaveType {
+        case none, secure, file
+    }
+    
     public static let shared = DataManager()
-    private init() { keychain.synchronizable = true }
+    private init() { }
     
-    private let keychain = KeychainSwift()
+    private let keychain = KeyManager.shared
+    private var userDefaults: UserDefaults = .standard
     
-    public var lastError: OSStatus { keychain.lastResultCode }
+    private var suiteName: String? = nil {
+        didSet {
+            keychain.accessGroup = suiteName
+            userDefaults = UserDefaults(suiteName: suiteName) ?? .standard
+        }
+    }
+    private var isSynchronized: Bool = false {
+        didSet {
+            keychain.synchronizable = isSynchronized
+        }
+    }
+    private var securityLevel: KeyManager.SecurityLevel? = nil {
+        didSet {
+            keychain.securityLevel = securityLevel ?? .afterFirstUnlock
+        }
+    }
+    
+    
+    public var lastError: KeyManager.KeyError? = nil
+    
+    public static func shared(suiteName: String? = nil, sync: Bool = false, securityLevel: KeyManager.SecurityLevel? = nil) -> DataManager {
+        let dataManager = DataManager()
+        dataManager.suiteName = suiteName
+        dataManager.isSynchronized = sync
+        dataManager.securityLevel = securityLevel
+        return dataManager
+    }
         
     @discardableResult
-    public func save<T: Codable>(_ file: String, value: T, isSecure: Bool = false, isFile: Bool = false) -> Bool {
+    public func save<T: Codable>(_ file: String, value: T, type: SaveType = .none) -> Bool {
         
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
         guard let data = try? encoder.encode(value) else { return false }
         
-        if isFile { return saveToDocuments(file, value: data) != nil }
-        
-        isSecure ? secureSave(file, value: data) : UserDefaults.standard.set(data, forKey: file)
-        return true
-        
-    }
-    
-    public func retrieve<T: Codable>(_ file: String, isSecure: Bool = false, isFile: Bool = false) -> T? {
-        
-        if isSecure {
-            let secureValue: T? = secureRetrive(file)
-            return secureValue
+        switch type {
+        case .none:
+            userDefaults.set(data, forKey: file)
+            return true
+        case .secure: return secureSave(file, value: value)
+        case .file: return saveToDocuments(file, value: data) != nil
         }
         
-        if isFile {
-            let docValue: T? = retrieveDocument(file)
-            return docValue
+    }
+    
+    public func retrieve<T: Codable>(_ file: String, type: SaveType = .none) -> T? {
+        switch type {
+        case .none:
+            guard let data = userDefaults.value(forKey: file) as? Data else {return nil}
+            return try? JSONDecoder().decode(T.self, from: data)
+        case .secure: return secureRetrive(file)
+        case .file: return retrieveDocument(file)
         }
-        
-        guard let data = UserDefaults.standard.value(forKey: file) as? Data else {return nil}
-        return try? JSONDecoder().decode(T.self, from: data)
-        
     }
     
-    public func exist(_ file: String, isSecure: Bool = false, isFile: Bool = false) -> Bool {
-        if isFile { return existDocument(file) }
-        if isSecure { return secureExist(file) }
-        return UserDefaults.standard.object(forKey: file) != nil
+    public func exist(_ file: String, type: SaveType = .none) -> Bool {
+        switch type {
+        case .none: return userDefaults.object(forKey: file) != nil
+        case .secure: return secureExist(file)
+        case .file: return existDocument(file)
+        }
     }
     
-    public func delete(_ file: String, isSecure: Bool = false, isFile: Bool = false) {
-        if isFile { deleteDocument(file); return }
-        isSecure ? secureDelete(file) : UserDefaults.standard.removeObject(forKey: file)
+    public func delete(_ file: String, type: SaveType = .none) {
+        switch type {
+        case .none: userDefaults.removeObject(forKey: file)
+        case .secure: secureDelete(file)
+        case .file: deleteDocument(file)
+        }
     }
     
     
@@ -93,15 +124,33 @@ public class DataManager {
     
     
     // MARK: Secure Files
-    private func secureSave(_ file: String, value: Data) { keychain.set(value, forKey: file) }
-    
-    private func secureExist(_ file: String) -> Bool { keychain.getData(file) != nil }
-    
-    private func secureRetrive<T: Codable>(_ file: String) -> T? {
-        guard let data = keychain.getData(file) else { return nil }
-        return try? JSONDecoder().decode(T.self, from: data)
+    private func secureSave<T: Codable>(_ file: String, value: T) -> Bool {
+        do {
+            try keychain.save(key: file, value: value)
+            return true
+        } catch {
+            if let error = error as? KeyManager.KeyError { lastError = error }
+            return false
+        }
     }
     
-    private func secureDelete(_ file: String) { keychain.delete(file) }
+    private func secureExist(_ file: String) -> Bool { keychain.exists(key: file) }
+    
+    private func secureRetrive<T: Codable>(_ file: String) -> T? {
+        do {
+            return try keychain.retrieve(key: file)
+        } catch {
+            if let error = error as? KeyManager.KeyError { lastError = error }
+            return nil
+        }
+    }
+    
+    private func secureDelete(_ file: String) {
+        do {
+            try keychain.delete(key: file)
+        } catch {
+            if let error = error as? KeyManager.KeyError { lastError = error }
+        }
+    }
     
 }

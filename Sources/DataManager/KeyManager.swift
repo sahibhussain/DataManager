@@ -7,132 +7,181 @@
 //
 
 import Foundation
+import Security
 
-public class KeyManager {
-    
-    enum KeyError: Error {
-        
-        case invalidPassword
+public final class KeyManager {
+
+    public enum KeyError: LocalizedError {
+        case invalidData
         case duplicateEntry
+        case itemNotFound
+        case unexpectedData
+        case keyGenerationFailed
         case unknown(OSStatus)
-        case invalidResponse
-        case invalidRequest
-        case invalidURL(urlString: String)
-        
-        public var description: String {
+
+        public var errorDescription: String? {
             switch self {
-            case .invalidResponse: return "Error decoding response data."
-            case .invalidRequest: return "Error decoding request data."
-            case .invalidURL(let urlString): return "Invalid URL: \(urlString)"
-            case .unknown(let code):  return "Unknown error: \(code.description)"
-            case .invalidPassword: return "Password seems to be invalid"
-            case .duplicateEntry: return "Trying to save duplicate entry"
+            case .invalidData:
+                return "Data is invalid or cannot be encoded."
+            case .duplicateEntry:
+                return "Keychain item already exists."
+            case .itemNotFound:
+                return "Requested item was not found in the Keychain."
+            case .unexpectedData:
+                return "Unexpected data returned from the Keychain."
+            case .keyGenerationFailed:
+                return "Failed to generate cryptographic keypair."
+            case .unknown(let status):
+                return SecCopyErrorMessageString(status, nil) as String? ??
+                       "Unknown Keychain error: \(status)"
+            }
+        }
+    }
+    
+    public enum SecurityLevel {
+        
+        case afterFirstUnlock, afterEveryUnlock
+        
+        var value: CFString {
+            switch self {
+            case .afterFirstUnlock: return kSecAttrAccessibleAfterFirstUnlock
+            case .afterEveryUnlock: return kSecAttrAccessibleWhenUnlocked
             }
         }
         
     }
-    
-    static let shared = KeyManager()
+
+    public static let shared = KeyManager()
     private init() {}
     
-    public func save(_ password: String, accountID: String, domain: String) -> Error? {
-        
-        guard let passwordData = password.data(using: .utf8) else { return KeyError.invalidPassword }
-        
-        let query: [String: AnyObject] = [
+    private let domain = Bundle.main.bundleIdentifier ?? "com.burningdesireinclusive.SHNetwork"
+    
+    public var accessGroup: String? = nil
+    public var synchronizable: Bool = true
+    public var securityLevel: SecurityLevel = .afterFirstUnlock
+    
+    
+    private func commonQuery(forKey key: String) -> [String: Any] {
+        var q: [String : Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: domain as AnyObject,
-            kSecAttrAccount as String: accountID as AnyObject,
-            kSecValueData as String: passwordData as AnyObject
+            kSecAttrService as String: domain,
+            kSecAttrAccount as String: key,
+            kSecAttrAccessible as String: securityLevel.value
         ]
+        if let accessGroup { q[kSecAttrAccessGroup as String] = accessGroup }
+        if synchronizable { q[kSecAttrSynchronizable as String] = kCFBooleanTrue }
+        return q
+    }
+
+    
+    public func save<T: Codable>(key: String, value: T) throws {
+
+        guard let data = try? JSONEncoder().encode(value) else {
+            throw KeyError.invalidData
+        }
+
+        var query = commonQuery(forKey: key)
+        query[kSecValueData as String] = data
         
         let status = SecItemAdd(query as CFDictionary, nil)
-        
-        guard status != errSecDuplicateItem else {
-            return KeyError.duplicateEntry
+
+        switch status {
+        case errSecSuccess:
+            return
+        case errSecDuplicateItem:
+            throw KeyError.duplicateEntry
+        default:
+            throw KeyError.unknown(status)
         }
-        
-        guard status == errSecSuccess else {
-            return KeyError.unknown(status)
-        }
-        
-        return nil
-        
     }
-    
-    public func retrieve(_ accountID: String, domain: String) -> String? {
-        
-        let query: [String: AnyObject] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: domain as AnyObject,
-            kSecAttrAccount as String: accountID as AnyObject,
-            kSecReturnData as String: kCFBooleanTrue,
-            kSecMatchLimit as String: kSecMatchLimitOne
-        ]
-        
+
+    public func retrieve<T: Codable>(key: String) throws -> T? {
+
+        var query = commonQuery(forKey: key)
+        query[kSecReturnData as String] = kCFBooleanTrue
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+
         var result: AnyObject?
-        _ = SecItemCopyMatching(query as CFDictionary, &result)
-        
-        guard let returnData = result as? Data else {return nil}
-        return String(data: returnData, encoding: .utf8)
-        
-    }
-    
-    public func delete(_ accountID: String, domain: String) -> Error? {
-        
-        let query: [String: AnyObject] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: domain as AnyObject,
-            kSecAttrAccount as String: accountID as AnyObject
-        ]
-        
-        let status = SecItemDelete(query as CFDictionary)
-        
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+
         guard status == errSecSuccess else {
-            return KeyError.unknown(status)
+            if status == errSecItemNotFound { return nil }
+            throw KeyError.unknown(status)
         }
+
+        guard
+            let data = result as? Data,
+            let value = try? JSONDecoder().decode(T.self, from: data)
+        else { throw KeyError.unexpectedData }
+        return value
         
-        return nil
+    }
+
+    public func update<T: Codable>(key: String, value: T) throws {
+
+        guard let data = try? JSONEncoder().encode(value) else { throw KeyError.invalidData }
+
+        let query = commonQuery(forKey: key)
+        let attributes: [String: Any] = [kSecValueData as String: data]
+        let status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+
+        guard status == errSecSuccess else { throw KeyError.unknown(status) }
         
     }
     
+    public func exists(key: String) -> Bool {
+        
+        var query = commonQuery(forKey: key)
+        query[kSecReturnData as String] = kCFBooleanFalse
+        
+        let status = SecItemCopyMatching(query as CFDictionary, nil)
+        return status == errSecSuccess
+        
+    }
+
+    public func delete(key: String) throws {
+        let query = commonQuery(forKey: key)
+        let status = SecItemDelete(query as CFDictionary)
+        guard status == errSecSuccess || status == errSecItemNotFound else { throw KeyError.unknown(status) }
+    }
+
     
-    public func generateKeypair() throws -> (privateKey: String, publicKey: String) {
-        
-        guard let publicTagData = "publicTag".data(using: .utf8), let privateTagData = "privateTag".data(using: .utf8) else {
-            throw KeyError.unknown(.zero)
-        }
-        
-        let publicAttr: [String: AnyObject] = [
-            kSecAttrIsPermanent as String: kCFBooleanTrue,
-            kSecAttrApplicationTag as String: publicTagData as AnyObject
+    public func generateKeypair(tag: String, keySize: Int = 2048) throws -> (privateKey: String, publicKey: String) {
+
+        let privateTag = "\(tag).private".data(using: .utf8)!
+        let publicTag  = "\(tag).public".data(using: .utf8)!
+
+        let attributes: [String: Any] = [
+            kSecAttrKeyType as String: kSecAttrKeyTypeRSA,
+            kSecAttrKeySizeInBits as String: keySize,
+            kSecPrivateKeyAttrs as String: [
+                kSecAttrIsPermanent as String: true,
+                kSecAttrApplicationTag as String: privateTag
+            ],
+            kSecPublicKeyAttrs as String: [
+                kSecAttrIsPermanent as String: true,
+                kSecAttrApplicationTag as String: publicTag
+            ]
         ]
-        
-        let privateAttr: [String: AnyObject] = [
-            kSecAttrIsPermanent as String: kCFBooleanTrue,
-            kSecAttrApplicationTag as String: privateTagData as AnyObject
-        ]
-        
-        let keyPairAttr: [String: AnyObject] = [
-            kSecAttrKeyType as String: kSecAttrKeyTypeRSA as AnyObject,
-            kSecAttrKeySizeInBits as String: 2048 as AnyObject,
-            kSecPublicKeyAttrs as String: publicAttr as AnyObject,
-            kSecPrivateKeyAttrs as String: privateAttr as AnyObject
-        ]
-        
+
         var error: Unmanaged<CFError>?
-        guard let privateKey = SecKeyCreateRandomKey(keyPairAttr as CFDictionary, &error), let publicKey = SecKeyCopyPublicKey(privateKey) else {
-            throw KeyError.unknown(.zero)
+        guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error),
+              let publicKey = SecKeyCopyPublicKey(privateKey) else {
+            throw KeyError.keyGenerationFailed
         }
-        
-        if let privateKeyCFData = SecKeyCopyExternalRepresentation(privateKey, &error), let publicKeyCFData = SecKeyCopyExternalRepresentation(publicKey, &error) {
-            let privateKeyData = privateKeyCFData as Data
-            let publicKeyData = publicKeyCFData as Data
-            return (privateKeyData.base64EncodedString(), publicKeyData.base64EncodedString())
+
+        guard
+            let privateData = SecKeyCopyExternalRepresentation(privateKey, &error) as Data?,
+            let publicData = SecKeyCopyExternalRepresentation(publicKey, &error) as Data?
+        else {
+            throw KeyError.keyGenerationFailed
         }
-        
-        throw KeyError.unknown(.zero)
-        
+
+        return (
+            privateKey: privateData.base64EncodedString(),
+            publicKey: publicData.base64EncodedString()
+        )
     }
     
 }
+
