@@ -129,12 +129,29 @@ public class DataManager {
             try keychain.save(key: file, value: value)
             return true
         } catch {
-            if let error = error as? KeyManager.KeyError { lastError = error }
+            if let error = error as? KeyManager.KeyError {
+                if case .duplicateEntry = error {
+                    return secureUpdate(file, value: value)
+                }
+                lastError = error
+            }
             return false
         }
     }
     
     private func secureExist(_ file: String) -> Bool { keychain.exists(key: file) }
+    
+    private func secureUpdate<T: Codable>(_ file: String, value: T) -> Bool {
+        do {
+            try keychain.update(key: file, value: value)
+            return true
+        } catch {
+            if let error = error as? KeyManager.KeyError {
+                lastError = error
+            }
+            return false
+        }
+    }
     
     private func secureRetrive<T: Codable>(_ file: String) -> T? {
         do {
