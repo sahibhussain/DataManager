@@ -9,56 +9,26 @@
 import Foundation
 import Security
 
-public final class KeyManager {
-
-    public enum KeyError: LocalizedError {
-        case invalidData
-        case duplicateEntry
-        case itemNotFound
-        case unexpectedData
-        case keyGenerationFailed
-        case unknown(OSStatus)
-
-        public var errorDescription: String? {
-            switch self {
-            case .invalidData:
-                return "Data is invalid or cannot be encoded."
-            case .duplicateEntry:
-                return "Keychain item already exists."
-            case .itemNotFound:
-                return "Requested item was not found in the Keychain."
-            case .unexpectedData:
-                return "Unexpected data returned from the Keychain."
-            case .keyGenerationFailed:
-                return "Failed to generate cryptographic keypair."
-            case .unknown(let status):
-                return SecCopyErrorMessageString(status, nil) as String? ??
-                       "Unknown Keychain error: \(status)"
-            }
-        }
+final class KeyManager {
+    
+    private let domain: String
+    private let accessGroup: String?
+    private let synchronizable: Bool
+    private let securityLevel: SecurityLevel
+    
+    init(domain: String? = nil, accessGroup: String? = nil, synchronizable: Bool, securityLevel: SecurityLevel) {
+        self.domain = domain ?? Bundle.main.bundleIdentifier ?? "com.burningdesireinclusive.SHNetwork"
+        self.accessGroup = accessGroup
+        self.synchronizable = synchronizable
+        self.securityLevel = securityLevel
     }
     
-    public enum SecurityLevel {
-        
-        case afterFirstUnlock, afterEveryUnlock
-        
-        var value: CFString {
-            switch self {
-            case .afterFirstUnlock: return kSecAttrAccessibleAfterFirstUnlock
-            case .afterEveryUnlock: return kSecAttrAccessibleWhenUnlocked
-            }
-        }
-        
+    init(config: DataConfiguration) {
+        self.domain = config.bundleIdentifier ?? Bundle.main.bundleIdentifier ?? "com.burningdesireinclusive.SHNetwork"
+        self.accessGroup = config.suiteName
+        self.synchronizable = config.isSynchronized
+        self.securityLevel = config.securityLevel ?? .afterFirstUnlock
     }
-
-    public static let shared = KeyManager()
-    private init() {}
-    
-    private let domain = Bundle.main.bundleIdentifier ?? "com.burningdesireinclusive.SHNetwork"
-    
-    public var accessGroup: String? = nil
-    public var synchronizable: Bool = true
-    public var securityLevel: SecurityLevel = .afterFirstUnlock
     
     
     private func commonQuery(forKey key: String) -> [String: Any] {
@@ -77,7 +47,7 @@ public final class KeyManager {
     public func save<T: Codable>(key: String, value: T) throws {
 
         guard let data = try? JSONEncoder().encode(value) else {
-            throw KeyError.invalidData
+            throw KeychainError.invalidData
         }
 
         var query = commonQuery(forKey: key)
@@ -89,9 +59,9 @@ public final class KeyManager {
         case errSecSuccess:
             return
         case errSecDuplicateItem:
-            throw KeyError.duplicateEntry
+            throw KeychainError.duplicateEntry
         default:
-            throw KeyError.unknown(status)
+            throw KeychainError.unknown(status)
         }
     }
 
@@ -106,26 +76,26 @@ public final class KeyManager {
 
         guard status == errSecSuccess else {
             if status == errSecItemNotFound { return nil }
-            throw KeyError.unknown(status)
+            throw KeychainError.unknown(status)
         }
 
         guard
             let data = result as? Data,
             let value = try? JSONDecoder().decode(T.self, from: data)
-        else { throw KeyError.unexpectedData }
+        else { throw KeychainError.unexpectedData }
         return value
         
     }
 
     public func update<T: Codable>(key: String, value: T) throws {
 
-        guard let data = try? JSONEncoder().encode(value) else { throw KeyError.invalidData }
+        guard let data = try? JSONEncoder().encode(value) else { throw KeychainError.invalidData }
 
         let query = commonQuery(forKey: key)
         let attributes: [String: Any] = [kSecValueData as String: data]
         let status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
 
-        guard status == errSecSuccess else { throw KeyError.unknown(status) }
+        guard status == errSecSuccess else { throw KeychainError.unknown(status) }
         
     }
     
@@ -142,7 +112,7 @@ public final class KeyManager {
     public func delete(key: String) throws {
         let query = commonQuery(forKey: key)
         let status = SecItemDelete(query as CFDictionary)
-        guard status == errSecSuccess || status == errSecItemNotFound else { throw KeyError.unknown(status) }
+        guard status == errSecSuccess || status == errSecItemNotFound else { throw KeychainError.unknown(status) }
     }
 
     
@@ -167,14 +137,14 @@ public final class KeyManager {
         var error: Unmanaged<CFError>?
         guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error),
               let publicKey = SecKeyCopyPublicKey(privateKey) else {
-            throw KeyError.keyGenerationFailed
+            throw KeychainError.keyGenerationFailed
         }
 
         guard
             let privateData = SecKeyCopyExternalRepresentation(privateKey, &error) as Data?,
             let publicData = SecKeyCopyExternalRepresentation(publicKey, &error) as Data?
         else {
-            throw KeyError.keyGenerationFailed
+            throw KeychainError.keyGenerationFailed
         }
 
         return (

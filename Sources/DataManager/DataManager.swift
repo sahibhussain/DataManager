@@ -3,43 +3,38 @@
 
 import Foundation
 
-public class DataManager {
-    
-    public enum SaveType {
-        case none, secure, file
-    }
+public final class DataManager {
     
     public static let shared = DataManager()
-    private init() { }
-    
-    private let keychain = KeyManager.shared
-    private var userDefaults: UserDefaults = .standard
-    
-    private var suiteName: String? = nil {
-        didSet {
-            keychain.accessGroup = suiteName
-            userDefaults = UserDefaults(suiteName: suiteName) ?? .standard
-        }
-    }
-    private var isSynchronized: Bool = false {
-        didSet {
-            keychain.synchronizable = isSynchronized
-        }
-    }
-    private var securityLevel: KeyManager.SecurityLevel? = nil {
-        didSet {
-            keychain.securityLevel = securityLevel ?? .afterFirstUnlock
-        }
+    private init() {
+        config = .init()
+        keychain = .init(synchronizable: true, securityLevel: .afterFirstUnlock)
     }
     
+    private let config: DataConfiguration
+    private let keychain: KeyManager
+    private let userDefaults: UserDefaults = .standard
     
-    public var lastError: KeyManager.KeyError? = nil
+    public var lastError: KeychainError? = nil
     
-    public static func shared(suiteName: String? = nil, sync: Bool = false, securityLevel: KeyManager.SecurityLevel? = nil) -> DataManager {
-        let dataManager = DataManager()
-        dataManager.suiteName = suiteName
-        dataManager.isSynchronized = sync
-        dataManager.securityLevel = securityLevel
+    public init(config: DataConfiguration) {
+        self.config = config
+        keychain = .init(config: config)
+    }
+    
+    public static func shared(
+        suiteName: String? = nil,
+        sync: Bool = false,
+        securityLevel: SecurityLevel? = nil,
+        bundleIdentifier: String? = nil
+    ) -> DataManager {
+        let config = DataConfiguration(
+            suiteName: suiteName,
+            isSynchronized: sync,
+            securityLevel: securityLevel,
+            bundleIdentifier: bundleIdentifier
+        )
+        let dataManager = DataManager(config: config)
         return dataManager
     }
         
@@ -129,7 +124,7 @@ public class DataManager {
             try keychain.save(key: file, value: value)
             return true
         } catch {
-            if let error = error as? KeyManager.KeyError {
+            if let error = error as? KeychainError {
                 if case .duplicateEntry = error {
                     return secureUpdate(file, value: value)
                 }
@@ -146,7 +141,7 @@ public class DataManager {
             try keychain.update(key: file, value: value)
             return true
         } catch {
-            if let error = error as? KeyManager.KeyError {
+            if let error = error as? KeychainError {
                 lastError = error
             }
             return false
@@ -157,7 +152,7 @@ public class DataManager {
         do {
             return try keychain.retrieve(key: file)
         } catch {
-            if let error = error as? KeyManager.KeyError { lastError = error }
+            if let error = error as? KeychainError { lastError = error }
             return nil
         }
     }
@@ -166,7 +161,7 @@ public class DataManager {
         do {
             try keychain.delete(key: file)
         } catch {
-            if let error = error as? KeyManager.KeyError { lastError = error }
+            if let error = error as? KeychainError { lastError = error }
         }
     }
     
