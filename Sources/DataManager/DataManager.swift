@@ -9,17 +9,23 @@ public final class DataManager {
     private init() {
         config = .init()
         keychain = .init(synchronizable: true, securityLevel: .afterFirstUnlock)
+        userDefaults = .standard
     }
     
     private let config: DataConfiguration
     private let keychain: KeyManager
-    private let userDefaults: UserDefaults = .standard
+    private let userDefaults: UserDefaults
     
     public var lastError: KeychainError? = nil
     
     public init(config: DataConfiguration) {
         self.config = config
         keychain = .init(config: config)
+        userDefaults = if let suiteName = config.suiteName {
+            UserDefaults(suiteName: suiteName) ?? .standard
+        } else {
+            UserDefaults.standard
+        }
     }
     
     public static func shared(
